@@ -1,14 +1,21 @@
 (ns clj-commons.format.exceptions
   "Format and output exceptions in a pretty (structured, formatted) way."
-  (:require [clojure.pprint :as pp]
+  (:require [clojure.java.io :as io]
+            [clojure.pprint :as pp]
             [clojure.set :as set]
             [clojure.string :as str]
             [clj-commons.ansi :refer [compose]]
             [clj-commons.pretty-impl :refer [padding]])
   (:refer-clojure :exclude [*print-level* *print-length*])
-  (:import (java.lang StringBuilder StackTraceElement)
+  (:import (java.io File)
+           (java.lang StringBuilder StackTraceElement)
            (clojure.lang Compiler ExceptionInfo Named)
            (java.util.regex Pattern)))
+
+(def is-intellij
+  (or
+    (= "true" (str/lower-case (or (System/getenv "IS_INTELLIJ") "false")))
+    (= "true" (str/lower-case (System/getProperty "clj-commons.ansi.intellij" "false")))))
 
 (def default-fonts
   "A default map of [[compose]] font defs for different elements in the formatted exception report."
@@ -196,6 +203,24 @@
       ; This pattern comes from somewhere inside nREPL, I believe - may be dated
       (re-matches #"form-init\d+\.clj" file-name))))
 
+(defn- clojure-name-to-file [clj-name file line]
+  (let [folders (->> (str/split clj-name #"\.")
+                     #_(mapv (fn [folder] (str/replace folder "-" "_")))
+                     (drop-last 1)
+                     (vec))
+        fqn-classpath (conj folders file)]
+    (reduce (fn [_ v]
+              (let [file-cand (str/join File/separator (into [v] fqn-classpath))]
+                (when (and line (pos-int? line)
+                           (.exists (io/file file-cand)))
+                  (reduced (str
+                             "file:///"
+                             #_(io/file file-cand)
+                             (.getAbsolutePath (io/file file-cand))
+                             ":" line)))))
+            nil
+            ["src" "test"])))
+
 (defn- transform-stack-trace-element
   [file-name-prefix *cache ^StackTraceElement element]
   (or (get @*cache element)
@@ -216,7 +241,12 @@
                          name
                          (str class-name "." method-name))
                        line (str ":" line))
-            expanded {:file file
+            clojure-file-intellij (when (and is-clojure? is-intellij)
+                                    (clojure-name-to-file (first names) file line))
+            expanded {:file (if (and is-clojure? is-intellij clojure-file-intellij)
+                              clojure-file-intellij
+                              file)
+                      ;:abs-file (when is-clojure? (clojure-name-to-file (first names) file))
                       :line (when (and line
                                        (pos? line))
                               line)
@@ -782,7 +812,6 @@
   ; Group 1 - class and method name
   ; Group 3 - file name (or nil)
   ; Group 4 - line number (or nil)
-  )
 
 (defn- add-message-text
   [exceptions line]
