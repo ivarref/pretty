@@ -804,11 +804,10 @@
   #"(Caused by: )?(\w+(\.\w+)*): (.*)")
   ; Group 2 - exception name
   ; Group 4 - exception message
-  )
 
 (def ^:private re-stack-frame
   ;; Sometimes the file name and line number are replaced with "Unknown source"
-  #"\s+at ([a-zA-Z_.$\d<>]+)\(((.+):(\d+))?.*\).*"
+  #"\s+at ([a-zA-Z_.$\d<>]+)\(((.+):(\d+))?.*\).*")
   ; Group 1 - class and method name
   ; Group 3 - file name (or nil)
   ; Group 4 - line number (or nil)
