@@ -801,7 +801,7 @@
 
 (def ^:private re-exception-start
   "The start of an exception, possibly the outermost exception."
-  #"(Caused by: )?(\w+(\.\w+)*): (.*)"
+  #"(Caused by: )?(\w+(\.\w+)*): (.*)")
   ; Group 2 - exception name
   ; Group 4 - exception message
   )
